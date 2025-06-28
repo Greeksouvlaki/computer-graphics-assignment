@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>JavaScript Test</title>
+</head>
+<body>
+    <h1>JavaScript Test</h1>
+    <button id="testBtn">Test Button</button>
+    <div id="output"></div>
+    
+    <script>
+        console.log("Test script loaded!");
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log("DOM loaded in test!");
+            
+            const btn = document.getElementById('testBtn');
+            const output = document.getElementById('output');
+            
+            if (btn) {
+                console.log("Button found!");
+                btn.addEventListener('click', () => {
+                    console.log("Button clicked!");
+                    output.textContent = "Button works!";
+                });
+            } else {
+                console.error("Button not found!");
+            }
+        });
+    </script>
+</body>
+</html> 

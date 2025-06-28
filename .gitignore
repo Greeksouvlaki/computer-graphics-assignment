@@ -18,4 +18,8 @@ node_modules/
 
 # Build files
 dist/
-build/ 
+build/
+
+# Large files
+*.dmg
+Firefox*.dmg 

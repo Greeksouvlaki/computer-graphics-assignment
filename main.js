@@ -393,26 +393,34 @@ function setupEventListeners() {
             const selectedPart = document.querySelector('input[name="robotPart"]:checked').value;
             const delta = event.deltaY * 0.01; // Sensitivity
             
+            console.log('Mouse wheel:', selectedPart, 'delta:', delta);
+            
             switch (selectedPart) {
                 case 'right-arm':
                     robotRotations.rightArm += delta;
-                    robotRotations.rightArm = Math.max(0, Math.min(Math.PI, robotRotations.rightArm));
+                    // Clamp between -10° and 120° in radians
+                    robotRotations.rightArm = Math.max(-Math.PI / 18, Math.min(robotRotations.rightArm, 2 * Math.PI / 3));
+                    console.log('Right arm rotation:', robotRotations.rightArm);
                     break;
                 case 'left-arm':
                     robotRotations.leftArm += delta;
-                    robotRotations.leftArm = Math.max(0, Math.min(Math.PI, robotRotations.leftArm));
+                    robotRotations.leftArm = Math.max(-Math.PI/2, Math.min(Math.PI/2, robotRotations.leftArm)); // 180° range
+                    console.log('Left arm rotation:', robotRotations.leftArm);
                     break;
                 case 'head':
                     robotRotations.head += delta;
-                    robotRotations.head = Math.max(0, Math.min(Math.PI/2, robotRotations.head));
+                    robotRotations.head = Math.max(-Math.PI/4, Math.min(0, robotRotations.head)); // 90° range, straight to down
+                    console.log('Head rotation:', robotRotations.head);
                     break;
                 case 'right-leg':
                     robotRotations.rightLeg += delta;
-                    robotRotations.rightLeg = Math.max(0, Math.min(Math.PI/2, robotRotations.rightLeg));
+                    robotRotations.rightLeg = Math.max(-Math.PI/4, Math.min(0, robotRotations.rightLeg)); // 90° range, down to forward
+                    console.log('Right leg rotation:', robotRotations.rightLeg);
                     break;
                 case 'left-leg':
                     robotRotations.leftLeg += delta;
-                    robotRotations.leftLeg = Math.max(0, Math.min(Math.PI/2, robotRotations.leftLeg));
+                    robotRotations.leftLeg = Math.max(-Math.PI/4, Math.min(0, robotRotations.leftLeg)); // 90° range, down to forward
+                    console.log('Left leg rotation:', robotRotations.leftLeg);
                     break;
             }
             
@@ -617,93 +625,74 @@ function render(cameraPositionOverride) {
 }
 
 function drawPart(projectionMatrix, viewMatrix, translate, scale, texture, texCoordBuffer = buffers.texCoord, tintColor = [1, 1, 1, 1]) {
-    gl.useProgram(objectProgramInfo.program);
+    try {
+        gl.useProgram(objectProgramInfo.program);
 
-    // --- Bind buffers ---
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
-    gl.vertexAttribPointer(objectProgramInfo.attribLocations.position, 3, gl.FLOAT, false, 0, 0);
-    gl.enableVertexAttribArray(objectProgramInfo.attribLocations.position);
+        // --- Bind buffers ---
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
+        gl.vertexAttribPointer(objectProgramInfo.attribLocations.position, 3, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(objectProgramInfo.attribLocations.position);
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
-    gl.vertexAttribPointer(objectProgramInfo.attribLocations.texCoord, 2, gl.FLOAT, false, 0, 0);
-    gl.enableVertexAttribArray(objectProgramInfo.attribLocations.texCoord);
+        gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
+        gl.vertexAttribPointer(objectProgramInfo.attribLocations.texCoord, 2, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(objectProgramInfo.attribLocations.texCoord);
 
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.indices);
-    
-    // --- Set matrices ---
-    const modelMatrix = mat4.create();
-    mat4.translate(modelMatrix, modelMatrix, translate);
-    mat4.scale(modelMatrix, modelMatrix, scale);
-    
-    const modelViewMatrix = mat4.create();
-    mat4.multiply(modelViewMatrix, viewMatrix, modelMatrix);
-    
-    gl.uniformMatrix4fv(objectProgramInfo.uniformLocations.projectionMatrix, false, projectionMatrix);
-    gl.uniformMatrix4fv(objectProgramInfo.uniformLocations.modelViewMatrix, false, modelViewMatrix);
-    
-    // --- Set texture ---
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.uniform1i(objectProgramInfo.uniformLocations.sampler, 0);
-    
-    // --- Set tint color ---
-    gl.uniform4fv(objectProgramInfo.uniformLocations.tintColor, tintColor);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.indices);
+        
+        // --- Set matrices ---
+        const modelMatrix = mat4.create();
+        mat4.translate(modelMatrix, modelMatrix, translate);
+        mat4.scale(modelMatrix, modelMatrix, scale);
+        
+        const modelViewMatrix = mat4.create();
+        mat4.multiply(modelViewMatrix, viewMatrix, modelMatrix);
+        
+        gl.uniformMatrix4fv(objectProgramInfo.uniformLocations.projectionMatrix, false, projectionMatrix);
+        gl.uniformMatrix4fv(objectProgramInfo.uniformLocations.modelViewMatrix, false, modelViewMatrix);
+        
+        // --- Set texture ---
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.uniform1i(objectProgramInfo.uniformLocations.sampler, 0);
+        
+        // --- Set tint color ---
+        gl.uniform4fv(objectProgramInfo.uniformLocations.tintColor, tintColor);
 
-    gl.drawElements(gl.TRIANGLES, 36, gl.UNSIGNED_SHORT, 0);
+        gl.drawElements(gl.TRIANGLES, 36, gl.UNSIGNED_SHORT, 0);
+    } catch (error) {
+        console.error('Error in drawPart:', error);
+    }
 }
 
-function drawPartWithRotation(projectionMatrix, viewMatrix, translate, scale, rotation, rotationAxis, texture, texCoordBuffer = buffers.texCoord, tintColor = [1, 1, 1, 1]) {
+function drawPartWithPivot(projectionMatrix, viewMatrix, pivot, rotation, translate, scale, texture, texCoordBuffer = buffers.texCoord, tintColor = [1,1,1,1]) {
     gl.useProgram(objectProgramInfo.program);
-
-    // --- Bind buffers ---
     gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
     gl.vertexAttribPointer(objectProgramInfo.attribLocations.position, 3, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(objectProgramInfo.attribLocations.position);
-
     gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
     gl.vertexAttribPointer(objectProgramInfo.attribLocations.texCoord, 2, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(objectProgramInfo.attribLocations.texCoord);
-
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.indices);
-    
-    // --- Set matrices with rotation ---
-    const modelMatrix = mat4.create();
+    let modelMatrix = mat4.create();
+    mat4.translate(modelMatrix, modelMatrix, pivot);
+    mat4.rotateX(modelMatrix, modelMatrix, rotation);
     mat4.translate(modelMatrix, modelMatrix, translate);
-    
-    // Apply rotation based on axis
-    if (rotationAxis === 'x') {
-        mat4.rotateX(modelMatrix, modelMatrix, rotation);
-    } else if (rotationAxis === 'y') {
-        mat4.rotateY(modelMatrix, modelMatrix, rotation);
-    } else if (rotationAxis === 'z') {
-        mat4.rotateZ(modelMatrix, modelMatrix, rotation);
-    }
-    
     mat4.scale(modelMatrix, modelMatrix, scale);
-    
-    const modelViewMatrix = mat4.create();
+    let modelViewMatrix = mat4.create();
     mat4.multiply(modelViewMatrix, viewMatrix, modelMatrix);
-    
     gl.uniformMatrix4fv(objectProgramInfo.uniformLocations.projectionMatrix, false, projectionMatrix);
     gl.uniformMatrix4fv(objectProgramInfo.uniformLocations.modelViewMatrix, false, modelViewMatrix);
-    
-    // --- Set texture ---
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.uniform1i(objectProgramInfo.uniformLocations.sampler, 0);
-    
-    // --- Set tint color ---
     gl.uniform4fv(objectProgramInfo.uniformLocations.tintColor, tintColor);
-
     gl.drawElements(gl.TRIANGLES, 36, gl.UNSIGNED_SHORT, 0);
 }
 
 function drawRobot(projectionMatrix, viewMatrix) {
-    // Color definitions from Step 5
-    const torsoColor = [0.8, 0.2, 0.2, 1.0];  // Reddish
-    const feetColor = [0.6, 0.1, 0.1, 1.0];   // Darker Red
-    const limbsColor = [1.0, 0.8, 0.2, 1.0];  // Yellowish
-
+    const torsoColor = [0.8, 0.2, 0.2, 1.0];
+    const feetColor = [0.6, 0.1, 0.1, 1.0];
+    const limbsColor = [1.0, 0.8, 0.2, 1.0];
     // Feet
     drawPart(projectionMatrix, viewMatrix, [-3, 0, 1], [4, 6, 2], textures.metal, buffers.texCoord, feetColor);
     drawPart(projectionMatrix, viewMatrix, [3, 0, 1], [4, 6, 2], textures.metal, buffers.texCoord, feetColor);
@@ -712,9 +701,10 @@ function drawRobot(projectionMatrix, viewMatrix) {
     drawPart(projectionMatrix, viewMatrix, [3, 0, 7], [4, 4, 10], textures.metal, buffers.texCoord, limbsColor);
     // Torso
     drawPart(projectionMatrix, viewMatrix, [0, 0, 17], [10, 4, 10], textures.metal, buffers.texCoord, torsoColor);
-    // Arms
+    // Left arm (static)
     drawPart(projectionMatrix, viewMatrix, [-6.5, 0, 17], [3, 4, 10], textures.metal, buffers.texCoord, limbsColor);
-    drawPart(projectionMatrix, viewMatrix, [6.5, 0, 17], [3, 4, 10], textures.metal, buffers.texCoord, limbsColor);
+    // Right arm (rotating around shoulder)
+    drawPartWithPivot(projectionMatrix, viewMatrix, [6.5, 0, 22], robotRotations.rightArm, [0, 0, -5], [3, 4, 10], textures.metal, buffers.texCoord, limbsColor);
     // Head
     drawPart(projectionMatrix, viewMatrix, [0, 0, 24.5], [6, 4, 5], textures.head, buffers.headTexCoord);
 }
@@ -921,7 +911,7 @@ function createFloorTexture() {
     ctx.fillText('Computer Graphics Project', 256, 200);
     ctx.font = '14px Arial';
     ctx.fillText('Dimitrios Skoufis 21390317', 256, 320);
-    ctx.fillText('Dimitrios Lykoskoufis 21390318', 256, 340);
+    ctx.fillText('Dimitrios Lykoskoufis 21390320', 256, 340);
 
     const texture = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, texture);

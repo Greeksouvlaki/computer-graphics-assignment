@@ -398,13 +398,14 @@ function setupEventListeners() {
             switch (selectedPart) {
                 case 'right-arm':
                     robotRotations.rightArm += delta;
-                    // Clamp between -10° and 120° in radians
-                    robotRotations.rightArm = Math.max(-Math.PI / 18, Math.min(robotRotations.rightArm, 2 * Math.PI / 3));
+                    // Clamp between -90° and 170° in radians
+                    robotRotations.rightArm = Math.max(-Math.PI / 2, Math.min(robotRotations.rightArm, 2.97));
                     console.log('Right arm rotation:', robotRotations.rightArm);
                     break;
                 case 'left-arm':
                     robotRotations.leftArm += delta;
-                    robotRotations.leftArm = Math.max(-Math.PI/2, Math.min(Math.PI/2, robotRotations.leftArm)); // 180° range
+                    // Clamp between -90° and 170° in radians
+                    robotRotations.leftArm = Math.max(-Math.PI / 2, Math.min(robotRotations.leftArm, 2.97));
                     console.log('Left arm rotation:', robotRotations.leftArm);
                     break;
                 case 'head':
@@ -525,10 +526,10 @@ function initBuffers() {
 
     // Specific UVs for the robot head atlas
     const headTexCoords = [
-        // Front (Face)
-        0.0, 0.5,   0.5, 0.5,   0.5, 1.0,   0.0, 1.0,
-        // Back
-        0.5, 0.0,   1.0, 0.0,   1.0, 0.5,   0.5, 0.5,
+        // Front (Face) - mirrored
+        0.0, 1.0,  0.5, 1.0,  0.5, 0.5,  0.0, 0.5,
+        // Back - mirrored
+        1.0, 0.5,  0.5, 0.5,  0.5, 0.0,  1.0, 0.0,
         // Top
         0.0, 0.0,   0.5, 0.0,   0.5, 0.5,   0.0, 0.5,
         // Bottom
@@ -701,12 +702,12 @@ function drawRobot(projectionMatrix, viewMatrix) {
     drawPart(projectionMatrix, viewMatrix, [3, 0, 7], [4, 4, 10], textures.metal, buffers.texCoord, limbsColor);
     // Torso
     drawPart(projectionMatrix, viewMatrix, [0, 0, 17], [10, 4, 10], textures.metal, buffers.texCoord, torsoColor);
-    // Left arm (static)
-    drawPart(projectionMatrix, viewMatrix, [-6.5, 0, 17], [3, 4, 10], textures.metal, buffers.texCoord, limbsColor);
+    // Left arm (rotating around shoulder)
+    drawPartWithPivot(projectionMatrix, viewMatrix, [-6.5, 0, 22], robotRotations.leftArm, [0, 0, -5], [3, 4, 10], textures.metal, buffers.texCoord, limbsColor);
     // Right arm (rotating around shoulder)
     drawPartWithPivot(projectionMatrix, viewMatrix, [6.5, 0, 22], robotRotations.rightArm, [0, 0, -5], [3, 4, 10], textures.metal, buffers.texCoord, limbsColor);
-    // Head
-    drawPart(projectionMatrix, viewMatrix, [0, 0, 24.5], [6, 4, 5], textures.head, buffers.headTexCoord);
+    // Head (rotated 180° around Z by flipping X and Y scale)
+    drawPart(projectionMatrix, viewMatrix, [0, 0, 24.5], [-6, -4, 5], textures.head, buffers.headTexCoord);
 }
 
 function drawFloor(projectionMatrix, viewMatrix) {

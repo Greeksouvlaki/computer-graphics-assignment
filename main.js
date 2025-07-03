@@ -795,6 +795,16 @@ function tick() {
         robotRotations.leftArm  = armMin + (armMax - armMin) * (-swing + 1) / 2;
         robotRotations.rightLeg = legMin + (legMax - legMin) * (-swing + 1) / 2;
         // Head stays manual or neutral
+    } else if (animationMode === 'robot-metal') {
+        // Robot Metal: left arm fixed, right arm rotates, head nods in sync
+        const t = performance.now() * 0.002; // Animation speed
+        // Left arm fixed at 45°
+        robotRotations.leftArm = Math.PI / 4;
+        // Right arm rotates 0 to 2π
+        robotRotations.rightArm = (t * 2) % (2 * Math.PI);
+        // Head nods ±45° in sync with right arm (one nod per full rotation)
+        robotRotations.head = Math.sin(t * 2) * (Math.PI / 4);
+        // Legs stay manual or neutral
     }
 
     console.log("Rendering animation frame with camera:", [camX, camY, camZ]);

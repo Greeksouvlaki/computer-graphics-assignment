@@ -415,12 +415,14 @@ function setupEventListeners() {
                     break;
                 case 'right-leg':
                     robotRotations.rightLeg += delta;
-                    robotRotations.rightLeg = Math.max(-Math.PI/4, Math.min(0, robotRotations.rightLeg)); // 90° range, down to forward
+                    // Clamp between -45° (backward) and 45° (forward) in radians
+                    robotRotations.rightLeg = Math.max(-Math.PI / 4, Math.min(robotRotations.rightLeg, Math.PI / 4));
                     console.log('Right leg rotation:', robotRotations.rightLeg);
                     break;
                 case 'left-leg':
                     robotRotations.leftLeg += delta;
-                    robotRotations.leftLeg = Math.max(-Math.PI/4, Math.min(0, robotRotations.leftLeg)); // 90° range, down to forward
+                    // Clamp between -45° (backward) and 45° (forward) in radians
+                    robotRotations.leftLeg = Math.max(-Math.PI / 4, Math.min(robotRotations.leftLeg, Math.PI / 4));
                     console.log('Left leg rotation:', robotRotations.leftLeg);
                     break;
             }
@@ -694,12 +696,12 @@ function drawRobot(projectionMatrix, viewMatrix) {
     const torsoColor = [0.8, 0.2, 0.2, 1.0];
     const feetColor = [0.6, 0.1, 0.1, 1.0];
     const limbsColor = [1.0, 0.8, 0.2, 1.0];
-    // Feet
-    drawPart(projectionMatrix, viewMatrix, [-3, 0, 1], [4, 6, 2], textures.metal, buffers.texCoord, feetColor);
-    drawPart(projectionMatrix, viewMatrix, [3, 0, 1], [4, 6, 2], textures.metal, buffers.texCoord, feetColor);
-    // Legs
-    drawPart(projectionMatrix, viewMatrix, [-3, 0, 7], [4, 4, 10], textures.metal, buffers.texCoord, limbsColor);
-    drawPart(projectionMatrix, viewMatrix, [3, 0, 7], [4, 4, 10], textures.metal, buffers.texCoord, limbsColor);
+    // Feet (rotating with legs around hip joints)
+    drawPartWithPivot(projectionMatrix, viewMatrix, [-3, 0, 11], robotRotations.leftLeg, [0, 0, -10], [4, 6, 2], textures.metal, buffers.texCoord, feetColor);
+    drawPartWithPivot(projectionMatrix, viewMatrix, [3, 0, 11], robotRotations.rightLeg, [0, 0, -10], [4, 6, 2], textures.metal, buffers.texCoord, feetColor);
+    // Legs (rotating around hip joints)
+    drawPartWithPivot(projectionMatrix, viewMatrix, [-3, 0, 12], robotRotations.leftLeg, [0, 0, -5], [4, 4, 10], textures.metal, buffers.texCoord, limbsColor);
+    drawPartWithPivot(projectionMatrix, viewMatrix, [3, 0, 12], robotRotations.rightLeg, [0, 0, -5], [4, 4, 10], textures.metal, buffers.texCoord, limbsColor);
     // Torso
     drawPart(projectionMatrix, viewMatrix, [0, 0, 17], [10, 4, 10], textures.metal, buffers.texCoord, torsoColor);
     // Left arm (rotating around shoulder)

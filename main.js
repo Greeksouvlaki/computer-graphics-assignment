@@ -775,7 +775,28 @@ function tick() {
     const camX = radius * Math.cos(angle);
     const camY = radius * Math.sin(angle);
     const camZ = 15;
-    
+
+    // --- Parade Animation Logic ---
+    const animationMode = document.querySelector('input[name="animationMode"]:checked')?.value || 'manual';
+    if (animationMode === 'parade') {
+        // Marching: alternate right arm+left leg and left arm+right leg
+        // Use a sine wave for smooth motion
+        const t = performance.now() * 0.002; // Animation speed
+        const swing = Math.sin(t);
+        // Full range for arms: -90° to 170° (in radians)
+        const armMin = -Math.PI / 2;
+        const armMax = 2.97;
+        // Full range for legs: -45° to 45° (in radians)
+        const legMin = -Math.PI / 4;
+        const legMax = Math.PI / 4;
+        // Map swing [-1,1] to [min,max]
+        robotRotations.rightArm = armMin + (armMax - armMin) * (swing + 1) / 2;
+        robotRotations.leftLeg  = legMin + (legMax - legMin) * (swing + 1) / 2;
+        robotRotations.leftArm  = armMin + (armMax - armMin) * (-swing + 1) / 2;
+        robotRotations.rightLeg = legMin + (legMax - legMin) * (-swing + 1) / 2;
+        // Head stays manual or neutral
+    }
+
     console.log("Rendering animation frame with camera:", [camX, camY, camZ]);
     render([camX, camY, camZ]);
     animationFrameId = requestAnimationFrame(tick);

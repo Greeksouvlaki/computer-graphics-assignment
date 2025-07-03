@@ -410,7 +410,8 @@ function setupEventListeners() {
                     break;
                 case 'head':
                     robotRotations.head += delta;
-                    robotRotations.head = Math.max(-Math.PI/4, Math.min(0, robotRotations.head)); // 90° range, straight to down
+                    // Clamp between -30° (backward) and 30° (forward) in radians
+                    robotRotations.head = Math.max(-Math.PI / 6, Math.min(robotRotations.head, Math.PI / 6));
                     console.log('Head rotation:', robotRotations.head);
                     break;
                 case 'right-leg':
@@ -708,8 +709,8 @@ function drawRobot(projectionMatrix, viewMatrix) {
     drawPartWithPivot(projectionMatrix, viewMatrix, [-6.5, 0, 22], robotRotations.leftArm, [0, 0, -5], [3, 4, 10], textures.metal, buffers.texCoord, limbsColor);
     // Right arm (rotating around shoulder)
     drawPartWithPivot(projectionMatrix, viewMatrix, [6.5, 0, 22], robotRotations.rightArm, [0, 0, -5], [3, 4, 10], textures.metal, buffers.texCoord, limbsColor);
-    // Head (rotated 180° around Z by flipping X and Y scale)
-    drawPart(projectionMatrix, viewMatrix, [0, 0, 24.5], [-6, -4, 5], textures.head, buffers.headTexCoord);
+    // Head (rotating around neck joint)
+    drawPartWithPivot(projectionMatrix, viewMatrix, [0, 0, 22], robotRotations.head, [0, 0, 2.5], [-6, -4, 5], textures.head, buffers.headTexCoord);
 }
 
 function drawFloor(projectionMatrix, viewMatrix) {

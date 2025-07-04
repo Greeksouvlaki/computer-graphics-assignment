@@ -26,6 +26,21 @@ let robotRotations = {
     leftLeg: 0      // 0 = down, Math.PI/2 = forward (90 degrees)
 };
 
+// --- Easter Egg State ---
+let robotMetalCycleCount = 0;
+let prevRightArmAngle = 0;
+let easterEggActive = false;
+let robotFallAngle = 0; // 0 = upright, -Math.PI/2 = fully fallen
+let headInflatePhase = 0; // for head inflation
+
+function resetEasterEggState() {
+    robotMetalCycleCount = 0;
+    prevRightArmAngle = 0;
+    easterEggActive = false;
+    robotFallAngle = 0;
+    headInflatePhase = 0;
+}
+
 // --- Main Shader for Robot and Floor ---
 const vsSource = `
     attribute vec4 aPosition;
@@ -343,6 +358,14 @@ function setupEventListeners() {
     } else {
         console.error("Stop animation button not found!");
     }
+    
+    // Animation mode radio buttons
+    const animationModeRadios = document.querySelectorAll('input[name="animationMode"]');
+    animationModeRadios.forEach(radio => {
+        radio.addEventListener('change', () => {
+            resetEasterEggState();
+        });
+    });
     
     console.log("All event listeners set up");
     
@@ -694,11 +717,50 @@ function drawPartWithPivot(projectionMatrix, viewMatrix, pivot, rotation, transl
 }
 
 function drawRobot(projectionMatrix, viewMatrix) {
+    if (easterEggActive && (document.querySelector('input[name="animationMode"]:checked')?.value === 'robot-metal')) {
+        // Apply fall rotation around heels (feet at z=1)
+        let fallMatrix = mat4.create();
+        mat4.translate(fallMatrix, fallMatrix, [0, 0, 1]); // Move pivot to heels
+        mat4.rotateX(fallMatrix, fallMatrix, window.__easterEggRobotFallAngle || 0); // Fall backward
+        mat4.translate(fallMatrix, fallMatrix, [0, 0, -1]); // Move back
+        let fallenViewMatrix = mat4.create();
+        mat4.multiply(fallenViewMatrix, viewMatrix, fallMatrix);
+        // Draw robot as usual, but patch head to inflate
+        const torsoColor = [0.8, 0.2, 0.2, 1.0];
+        const feetColor = [0.6, 0.1, 0.1, 1.0];
+        const limbsColor = [1.0, 0.8, 0.2, 1.0];
+        // Feet
+        drawPartWithPivot(projectionMatrix, fallenViewMatrix, [-3, 0, 11], robotRotations.leftLeg, [0, 0, -10], [4, 6, 2], textures.metal, buffers.texCoord, feetColor);
+        drawPartWithPivot(projectionMatrix, fallenViewMatrix, [3, 0, 11], robotRotations.rightLeg, [0, 0, -10], [4, 6, 2], textures.metal, buffers.texCoord, feetColor);
+        // Legs
+        drawPartWithPivot(projectionMatrix, fallenViewMatrix, [-3, 0, 12], robotRotations.leftLeg, [0, 0, -5], [4, 4, 10], textures.metal, buffers.texCoord, limbsColor);
+        drawPartWithPivot(projectionMatrix, fallenViewMatrix, [3, 0, 12], robotRotations.rightLeg, [0, 0, -5], [4, 4, 10], textures.metal, buffers.texCoord, limbsColor);
+        // Torso
+        drawPart(projectionMatrix, fallenViewMatrix, [0, 0, 17], [10, 4, 10], textures.metal, buffers.texCoord, torsoColor);
+        // Left arm
+        drawPartWithPivot(projectionMatrix, fallenViewMatrix, [-6.5, 0, 22], robotRotations.leftArm, [0, 0, -5], [3, 4, 10], textures.metal, buffers.texCoord, limbsColor);
+        // Right arm
+        drawPartWithPivot(projectionMatrix, fallenViewMatrix, [6.5, 0, 22], robotRotations.rightArm, [0, 0, -5], [3, 4, 10], textures.metal, buffers.texCoord, limbsColor);
+        // Head (inflate/deflate)
+        const headScale = window.__easterEggHeadScale || 1;
+        drawPartWithPivot(
+            projectionMatrix,
+            fallenViewMatrix,
+            [0, 0, 22],
+            robotRotations.head,
+            [0, 0, 2.5],
+            [-6 * headScale, -4 * headScale, 5 * headScale],
+            textures.head,
+            buffers.headTexCoord
+        );
+        return;
+    }
+    // Otherwise, normal drawRobot
     const torsoColor = [0.8, 0.2, 0.2, 1.0];
     const feetColor = [0.6, 0.1, 0.1, 1.0];
     const limbsColor = [1.0, 0.8, 0.2, 1.0];
     // Feet (rotating with legs around hip joints)
-    drawPartWithPivot(projectionMatrix, viewMatrix, [-3, 0, 11], robotRotations.leftLeg, [0, 0, -10], [4, 6, 2], textures.metal, buffers.texCoord, feetColor);
+    drawPartWithPivot(projectionMatrix, viewMatrix, [-3, 0, 11 ], robotRotations.leftLeg, [0, 0, -10], [4, 6, 2], textures.metal, buffers.texCoord, feetColor);
     drawPartWithPivot(projectionMatrix, viewMatrix, [3, 0, 11], robotRotations.rightLeg, [0, 0, -10], [4, 6, 2], textures.metal, buffers.texCoord, feetColor);
     // Legs (rotating around hip joints)
     drawPartWithPivot(projectionMatrix, viewMatrix, [-3, 0, 12], robotRotations.leftLeg, [0, 0, -5], [4, 4, 10], textures.metal, buffers.texCoord, limbsColor);
@@ -766,17 +828,16 @@ function stopAnimation() {
     }
     console.log("Enabling controls...");
     document.querySelectorAll('#controls input, #controls button').forEach(el => el.disabled = false);
+    resetEasterEggState();
 }
 
 function tick() {
-    console.log("tick called, angle:", angle);
     angle += 0.005;
     const radius = parseFloat(document.getElementById('camOrthoDistance').value);
     const camX = radius * Math.cos(angle);
     const camY = radius * Math.sin(angle);
     const camZ = 15;
 
-    // --- Parade Animation Logic ---
     const animationMode = document.querySelector('input[name="animationMode"]:checked')?.value || 'manual';
     if (animationMode === 'parade') {
         // Marching: alternate right arm+left leg and left arm+right leg
@@ -796,18 +857,45 @@ function tick() {
         robotRotations.rightLeg = legMin + (legMax - legMin) * (-swing + 1) / 2;
         // Head stays manual or neutral
     } else if (animationMode === 'robot-metal') {
-        // Robot Metal: left arm fixed, right arm rotates, head nods in sync
-        const t = performance.now() * 0.002; // Animation speed
-        // Left arm fixed at 45°
-        robotRotations.leftArm = Math.PI / 4;
-        // Right arm rotates 0 to 2π
-        robotRotations.rightArm = (t * 2) % (2 * Math.PI);
-        // Head nods ±45° in sync with right arm (one nod per full rotation)
-        robotRotations.head = Math.sin(t * 2) * (Math.PI / 4);
-        // Legs stay manual or neutral
+        if (!easterEggActive) {
+            // Robot Metal: left arm fixed, right arm rotates, head nods in sync
+            const t = performance.now() * 0.002; // Animation speed
+            // Left arm fixed at 45°
+            robotRotations.leftArm = Math.PI / 4;
+            // Right arm rotates 0 to 2π
+            const rightArmAngle = (t * 2) % (2 * Math.PI);
+            robotRotations.rightArm = rightArmAngle;
+            // Head nods ±45° in sync with right arm (one nod per full rotation)
+            robotRotations.head = Math.sin(t * 2) * (Math.PI / 4);
+            // Legs stay manual or neutral
+
+            // --- Cycle Tracking ---
+            if (prevRightArmAngle > 5 && rightArmAngle < 1) {
+                robotMetalCycleCount++;
+                console.log('Robot Metal cycle count:', robotMetalCycleCount);
+                if (robotMetalCycleCount >= 5) {
+                    easterEggActive = true;
+                    console.log('Easter egg activated!');
+                }
+            }
+            prevRightArmAngle = rightArmAngle;
+        } else {
+            // --- Easter Egg Animation ---
+            // Animate robot falling backward (rotate around heels)
+            if (robotFallAngle > -Math.PI / 2) {
+                robotFallAngle -= 0.02; // Fall speed
+                if (robotFallAngle < -Math.PI / 2) robotFallAngle = -Math.PI / 2;
+            }
+            // Animate head inflation/deflation
+            headInflatePhase += 0.05;
+            // Head scale oscillates between 0.5 and 2.0
+            const headScale = 1.25 + Math.sin(headInflatePhase) * 0.75;
+            // Store for use in drawRobot
+            window.__easterEggRobotFallAngle = robotFallAngle;
+            window.__easterEggHeadScale = headScale;
+        }
     }
 
-    console.log("Rendering animation frame with camera:", [camX, camY, camZ]);
     render([camX, camY, camZ]);
     animationFrameId = requestAnimationFrame(tick);
 }
